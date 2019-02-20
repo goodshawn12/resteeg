@@ -12,13 +12,15 @@ function resteeg(CONFIG)
 
 % basic cleaning pipeline
 
+[EEG, CONFIG] = resample_data(EEG,CONFIG);
+
 [EEG, CONFIG] = filter_data(EEG,CONFIG);
 
 [EEG, CONFIG] = remove_linenoise(EEG,CONFIG);
 
 [EEG, CONFIG] = remove_badchan(EEG,CONFIG);
 
-% [EEG, CONFIG] = interp_badchan(EEG,CONFIG);
+[EEG, CONFIG] = interp_badchan(EEG,CONFIG);
 
 [EEG, CONFIG] = reref_data(EEG,CONFIG);
 
@@ -27,7 +29,7 @@ function resteeg(CONFIG)
 
 [EEG, CONFIG] = asr_autoclean(EEG,CONFIG);
 
-[EEG, CONFIG] = ica_autoclean(EEG,CONFIG);
+% [EEG, CONFIG] = ica_autoclean(EEG,CONFIG);
 
 % [EEG, CONFIG] = waveica_autoclean(EEG,CONFIG);
 
@@ -36,6 +38,7 @@ function resteeg(CONFIG)
 %               Statistics of Signals
 % -------------------------------------------------------------------------
 
+% report bad channel statistics
 
 
 
@@ -49,6 +52,8 @@ function resteeg(CONFIG)
 %% ------------------------------------------------------------------------
 %               Power-related Measures
 % -------------------------------------------------------------------------
+
+[EEG, CONFIG] = compute_bandpower(EEG,CONFIG);
 
 % figure; pop_spectopo(EEG, 1, [], 'EEG' , 'freq', [[freq_to_plot]], 'freqrange',[[vis_freq_min] [vis_freq_max]],'electrodes','off');
 % saveas (gcf,[filename '_processedspectrum.jpg'] );
@@ -89,7 +94,7 @@ function resteeg(CONFIG)
 %                   Generate Report
 % -------------------------------------------------------------------------
 
-[EEG, CONFIG] = gen_report(EEG,CONFIG);
+% [EEG, CONFIG] = gen_report(EEG,CONFIG);
 
 
 
@@ -100,10 +105,16 @@ function [EEG, CONFIG] = import_data(CONFIG)
 
 if isempty(CONFIG.filepath) || isempty(CONFIG.filename)
     % allow user to select file
+    EEG = pop_loadset();
 end
 
-EEG = pop_biosig([CONFIG.filepath filesep CONFIG.filename '.bdf']);
-EEG = eeg_checkset( EEG );
+if strcmp(CONFIG.fileformat,'bdf')
+    EEG = pop_biosig([CONFIG.filepath filesep CONFIG.filename '.' CONFIG.fileformat]);
+    EEG = eeg_checkset( EEG );
+else
+    disp('The data format not supported. Please see EEGLAB data import for more info.')
+    return
+end
 
 % remove user-specified channels
 if ~isempty(CONFIG.chan_to_rm)
@@ -118,11 +129,26 @@ if ~isempty(CONFIG.chanlocs)
     EEG = eeg_checkset( EEG );
 end
 
+% convert data to double precision
+if CONFIG.double_precision
+    EEG.data = double(EEG.data);
+    EEG = eeg_checkset( EEG );
+end
+
 % save file
 if CONFIG.SAVESET
     filename = [CONFIG.filename '.set'];
     pop_saveset(EEG,'filepath',CONFIG.filepath,'filename',filename);
     fprintf('Saved EEG file ''%s'' under the folder ''%s''\n',filename, CONFIG.filepath);
+end
+
+end
+
+
+function [EEG, CONFIG] = resample_data(EEG,CONFIG)
+
+if ~isempty(CONFIG.resample_rate)
+    EEG = pop_resample(EEG,CONFIG.resample_rate);
 end
 
 end
@@ -137,6 +163,9 @@ if ~isempty(CONFIG.filter_hp_cutoff)
     EEG = pop_eegfiltnew(EEG,[],CONFIG.filter_hp_cutoff,[],1,[],plotfreqz); % why set revfilt = 1 (invert filter)?
 end
 
+% previous command for high pass filtering
+% EEG = pop_eegfilt( EEG, CONFIG.filter_hp_cutoff, 0, [], 0, 0, 0, 'fir1', 0);
+
 % low pass filtering using FIR
 if ~isempty(CONFIG.filter_lp_cutoff)
     EEG = pop_eegfiltnew(EEG,[],CONFIG.filter_lp_cutoff,[],0,[],plotfreqz);
@@ -148,19 +177,45 @@ end
 
 function [EEG, CONFIG] = remove_badchan(EEG,CONFIG)
 
-% option 1: pop_rejchan
-% EEG = pop_rejchan(EEG, 'elec',chan_index,'threshold',[-3 3],'norm','on','measure','spec','freqrange',[1 125]);
-% EEG = eeg_checkset( EEG );
-% 
-% EEG = pop_rejchan(EEG, 'elec',[1:EEG.nbchan],'threshold',[-3 3],'norm','on','measure','spec','freqrange',[1 125]);
-% EEG = eeg_checkset( EEG );
-% selected_channel_locations=EEG.chanlocs;
-% 
-% %save the names of the rejected channels for output table after the pipeline finishes
-% selected_channel_labels={selected_channel_locations.labels};
-% bad_channels_removed= setdiff(chan_IDs, selected_channel_labels);
+raw_channel_labels = {EEG.chanlocs.labels};
 
-% option 2: clean_radata 
+% option 1: using pop_rejchan
+if CONFIG.DO_RMBADCHAN_REJCHAN  
+    low_freq = CONFIG.filter_hp_cutoff;
+    high_freq = CONFIG.filter_lp_cutoff;
+    
+    if isempty(low_freq), low_freq = 1; end
+    if isempty(high_freq), high_freq = EEG.srate / 2; end
+    
+    EEG = pop_rejchan(EEG, 'threshold',[-3 3],'norm','on','measure','spec','freqrange',[low_freq high_freq]);
+    EEG = eeg_checkset( EEG );
+    
+    clean_channel_labels_rejchan = {EEG.chanlocs.labels};
+    badchan_labels_rejchan = setdiff(raw_channel_labels, clean_channel_labels_rejchan);
+    CONFIG.report.badchan_rejchan = badchan_labels_rejchan;
+    disp('Removed channels via pop_rejchan:')
+    disp(badchan_labels_rejchan)
+end
+
+% option 2: usign clean_rawdata
+if CONFIG.DO_RMBADCHAN_CLEANRAW     
+    EEG_clean = clean_rawdata(EEG, CONFIG.rmchan_flatline, -1, CONFIG.rmchan_mincorr, CONFIG.rmchan_linenoise, -1, -1);
+    try
+        if CONFIG.VIS_CLEAN
+            vis_artifacts(EEG_clean,EEG);
+        end
+    catch
+        disp('Unsuccessful attempt to call vis_artifacts for visualization');
+    end
+    EEG = EEG_clean;
+    EEG = eeg_checkset( EEG );
+    
+    clean_channel_labels_cleanraw = {EEG.chanlocs.labels};
+    badchan_labels_cleanraw = setdiff(raw_channel_labels, clean_channel_labels_cleanraw);
+    CONFIG.report.badchan_cleanraw = badchan_labels_cleanraw;
+    disp('Removed channels via clean_rawdata:')
+    disp(badchan_labels_cleanraw)
+end
 
 % option 3: eeg_detect_bad_channels from Jason's AMICA plugin
 
@@ -171,17 +226,14 @@ end
 function [EEG, CONFIG] = remove_linenoise(EEG,CONFIG)
 
 % option 1: cleanline
-% % reduce line noise in the data (note: may not completely eliminate, re-referencing helps at the end as well)
-% EEG = pop_cleanline(EEG, 'bandwidth',2,'chanlist',chan_index,'computepower',1,'linefreqs',...
-%     [60 120] ,'normSpectrum',0,'p',0.01,'pad',2,'plotfigures',0,'scanforlines',1,'sigtype',...
-%     'Channels','tau',100,'verb',0,'winsize',4,'winstep',1, 'ComputeSpectralPower','False');
-% EEG = eeg_checkset(EEG);
-% 
-% % close window if visualizations are turned off
-% if pipeline_visualizations_semiautomated == 0
-%     close all;
-% end
-% 
+% reduce line noise in the data (note: may not completely eliminate, re-referencing helps at the end as well)
+EEG = pop_cleanline(EEG, 'bandwidth',2,'chanlist', 1:EEG.nbchan,'computepower',1,'linefreqs',...
+    [60 120] ,'normSpectrum',0,'p',0.01,'pad',2,'plotfigures',0,'scanforlines',1,'sigtype',...
+    'Channels','tau',100,'verb',0,'winsize',4,'winstep',1, 'ComputeSpectralPower','False');
+if ~CONFIG.VIS_CLEAN
+    close;
+end
+EEG = eeg_checkset(EEG);
 
 % option 2: 60Hz, 120Hz notch filter
 
@@ -191,25 +243,30 @@ end
 
 function [EEG, CONFIG] = interp_badchan(EEG,CONFIG)
 
-% interpolate removed bad channels
-EEG = pop_interp(EEG, EEG.chanlocs, 'spherical');
-EEG = eeg_checkset(EEG );
+% [TODO] interpolate removed bad channels 
+if CONFIG.DO_INTERP_BADCHAN
+    EEG = pop_interp(EEG, EEG.chanlocs, 'spherical');
+    EEG = eeg_checkset(EEG );
+end
 
 end
 
 
 function [EEG, CONFIG] = reref_data(EEG,CONFIG)
 
-% average reference
-EEG = pop_reref(EEG, []);
-EEG = eeg_checkset(EEG);
-
-% alternative: zero-reference
-
-% alternative: CSD (toolbox)
-
-% alternative: signle channel reref
-
+if strcmpi(CONFIG.reref_choice, 'avg') || strcmpi(CONFIG.reref_choice, 'average')
+    % average reference (reduce one rank)
+    EEG = pop_reref(EEG, []);
+    EEG = eeg_checkset(EEG);
+elseif strcmpi(CONFIG.reref_choice, 'zero') || strcmpi(CONFIG.reref_choice, 'rest')
+    % alternative: zero-reference
+elseif strcmpi(CONFIG.reref_choice, 'csd')
+    % alternative: CSD (toolbox)
+elseif strcmpi(CONFIG.reref_choice, 'single')
+    % alternative: signle channel reref
+else
+    disp('Reference choice not specified or inccorect')
+end
 
 end
 
@@ -217,6 +274,12 @@ end
 function [EEG, CONFIG] = asr_autoclean(EEG,CONFIG)
 
 % call asr specific function
+if ~isempty(CONFIG.asr_stdcutoff)
+    EEG = clean_asr(EEG,CONFIG.asr_stdcutoff);
+    EEG = eeg_checkset( EEG );
+end
+
+% [TODO] rereference again?
 
 end
 
@@ -264,6 +327,7 @@ EEG = eeg_checkset( EEG );
 
 end
 
+
 function [EEG, CONFIG] = waveica_autoclean(EEG,CONFIG)
 
 % % run wavelet-ICA (ICA first for clustering the data, then wavelet thresholding on the ICs)
@@ -296,6 +360,21 @@ function [EEG, CONFIG] = waveica_autoclean(EEG,CONFIG)
 % 
 % %subtract out wavelet artifact signal from EEG signal
 % EEG.data = EEG2D - artifacts;
+
+end
+
+
+function [EEG, CONFIG] = compute_bandpower(EEG,CONFIG)
+
+% compute power spectra density (PSD)
+[spectra,freqs] = spectopo(EEG.data, 0, EEG.srate);
+
+% Set the following frequency bands: delta=1-4, theta=4-8, alpha=8-13, beta=13-30, gamma=30-80.
+CONFIG.report.power_delta = mean(10.^(spectra(:, freqs>=1 & freqs<4 )/10),2);
+CONFIG.report.power_theta = mean(10.^(spectra(:, freqs>=4 & freqs<8 )/10),2);
+CONFIG.report.power_alpha = mean(10.^(spectra(:, freqs>=8 & freqs<13 )/10),2);
+CONFIG.report.power_beta  = mean(10.^(spectra(:, freqs>=13 & freqs<30 )/10),2);
+CONFIG.report.power_gamma = mean(10.^(spectra(:, freqs>=30 & freqs<80 )/10),2);
 
 end
 
