@@ -1,37 +1,54 @@
-function resteeg(CONFIG)
+function CONFIG = resteeg(CONFIG)
 
 %% ------------------------------------------------------------------------
 %               Import Data and Obtain Dataset Info
 % -------------------------------------------------------------------------
-[EEG, CONFIG] = import_data(CONFIG);
+
+% load EEG dataset if already exists, otherwise convert data to EEGLAB (.set) format
+if exist([CONFIG.filepath filesep CONFIG.filename '.set'],'file')
+    EEG = pop_loadset([CONFIG.filepath filesep CONFIG.filename '.set']);
+    tmp = load([CONFIG.report.directory filesep 'config_import.mat']);
+    CONFIG.rawinfo = tmp.config_import;
+else
+    % convert data to EEGLAB (.set) format
+    [EEG, CONFIG] = import_data(CONFIG);
+    % remove user-specified (non-EEG) channels
+    [EEG, CONFIG] = remove_channel(EEG,CONFIG);
+    % handle dataset specific issues
+    if CONFIG.HANDLE_SPECIAL_CASE, [EEG, CONFIG] = handle_special_case(EEG, CONFIG); end
+    % import channel locations
+    [EEG, CONFIG] = import_chanlocs(EEG,CONFIG);
+    % save dataset
+    [EEG, CONFIG] = save_data(EEG,CONFIG,CONFIG.filename,0);
+end
 
 
 %% ------------------------------------------------------------------------
 %               Preprocessing Pipeline
 % -------------------------------------------------------------------------
 
-% basic cleaning pipeline
-
-[EEG, CONFIG] = resample_data(EEG,CONFIG);
-
-[EEG, CONFIG] = filter_data(EEG,CONFIG);
-
-[EEG, CONFIG] = remove_linenoise(EEG,CONFIG);
-
-[EEG, CONFIG] = remove_badchan(EEG,CONFIG);
-
-[EEG, CONFIG] = interp_badchan(EEG,CONFIG);
-
-[EEG, CONFIG] = reref_data(EEG,CONFIG);
-
-
-% advance cleaning pipeline
-
-[EEG, CONFIG] = asr_autoclean(EEG,CONFIG);
-
-% [EEG, CONFIG] = ica_autoclean(EEG,CONFIG);
-
-% [EEG, CONFIG] = waveica_autoclean(EEG,CONFIG);
+% load preprocessed EEG data if already exists, otherwise apply preprocessing pipeline
+if exist([CONFIG.filepath filesep CONFIG.filename_prep '.set'],'file') && ~CONFIG.RUN_PREPROC
+    EEG = pop_loadset([CONFIG.filepath filesep CONFIG.filename_prep '.set']);
+    tmp = load([CONFIG.report.directory filesep 'config_prep.mat']);
+    CONFIG.prep = tmp.config_prep;
+else
+    % basic cleaning pipeline
+    [EEG, CONFIG] = resample_data(EEG,CONFIG);
+    [EEG, CONFIG] = filter_data(EEG,CONFIG);
+    [EEG, CONFIG] = remove_linenoise(EEG,CONFIG);
+    [EEG, CONFIG] = remove_badchan(EEG,CONFIG);
+    [EEG, CONFIG] = interp_badchan(EEG,CONFIG);
+    [EEG, CONFIG] = reref_data(EEG,CONFIG);
+    
+    % advance cleaning pipeline
+    [EEG, CONFIG] = asr_autoclean(EEG,CONFIG);
+    % [EEG, CONFIG] = ica_autoclean(EEG,CONFIG);
+    % [EEG, CONFIG] = waveica_autoclean(EEG,CONFIG);
+    
+    % save preprocessed data
+    [EEG, CONFIG] = save_data(EEG,CONFIG,CONFIG.filename_prep,1);
+end
 
 
 %% ------------------------------------------------------------------------
@@ -47,13 +64,11 @@ function resteeg(CONFIG)
 % -------------------------------------------------------------------------
 
 
-
-
 %% ------------------------------------------------------------------------
 %               Power-related Measures
 % -------------------------------------------------------------------------
 
-[EEG, CONFIG] = compute_bandpower(EEG,CONFIG);
+[EEG, CONFIG] = power_analysis(EEG,CONFIG);
 
 % figure; pop_spectopo(EEG, 1, [], 'EEG' , 'freq', [[freq_to_plot]], 'freqrange',[[vis_freq_min] [vis_freq_max]],'electrodes','off');
 % saveas (gcf,[filename '_processedspectrum.jpg'] );
@@ -94,21 +109,22 @@ function resteeg(CONFIG)
 %                   Generate Report
 % -------------------------------------------------------------------------
 
-% [EEG, CONFIG] = gen_report(EEG,CONFIG);
+[EEG, CONFIG] = gen_report_materials(EEG,CONFIG);
 
-
+[EEG, CONFIG] = gen_report(EEG,CONFIG);
 
 end
 
 
 function [EEG, CONFIG] = import_data(CONFIG)
 
+% import EEG data and convert to .set format
 if isempty(CONFIG.filepath) || isempty(CONFIG.filename)
     % allow user to select file
     EEG = pop_loadset();
 end
 
-if strcmp(CONFIG.fileformat,'bdf')
+if strcmp(CONFIG.fileformat,'bdf') || strcmp(CONFIG.fileformat,'edf')
     EEG = pop_biosig([CONFIG.filepath filesep CONFIG.filename '.' CONFIG.fileformat]);
     EEG = eeg_checkset( EEG );
 else
@@ -116,18 +132,53 @@ else
     return
 end
 
+% store basic information of raw data
+CONFIG.rawinfo.nbchan = EEG.nbchan;
+CONFIG.rawinfo.xmax = EEG.xmax;
+CONFIG.rawinfo.srate = EEG.srate;
+CONFIG.rawinfo.chanlocs_labels = {EEG.chanlocs.labels};
+
+end
+
+
+function [EEG, CONFIG] = remove_channel(EEG,CONFIG)
+
 % remove user-specified channels
 if ~isempty(CONFIG.chan_to_rm)
     EEG = pop_select(EEG,'nochannel',CONFIG.chan_to_rm);
     EEG = eeg_checkset( EEG );
 end
 
+end
+
+
+function [EEG, CONFIG] = import_chanlocs(EEG,CONFIG)
+
 % load channel location
 if ~isempty(CONFIG.chanlocs)
-    chanlocs_file = load(CONFIG.chanlocs);
-    EEG.chanlocs = chanlocs_file.chanlocs;
-    EEG = eeg_checkset( EEG );
+    try
+        chanlocs_file = load(CONFIG.chanlocs);
+        EEG.chanlocs = chanlocs_file.chanlocs;
+        EEG = eeg_checkset( EEG );
+        return
+    catch
+        disp('Channel locations do not match with EEG channel labels: skip importing chanlocs');
+    end    
+else 
+    % look up channel locations from tempalte file
+    disp('Look up channel locations from template');
+    try
+        EEG = pop_chanedit(EEG, 'lookup', CONFIG.chanlocs_template);
+        EEG = eeg_checkset( EEG );
+    catch
+        disp('Mismatch channel labels with template: skip importing chanlocs');
+    end
 end
+
+end
+
+
+function [EEG, CONFIG] = save_data(EEG,CONFIG,filename,ISPREP)
 
 % convert data to double precision
 if CONFIG.double_precision
@@ -135,11 +186,21 @@ if CONFIG.double_precision
     EEG = eeg_checkset( EEG );
 end
 
-% save file
 if CONFIG.SAVESET
-    filename = [CONFIG.filename '.set'];
+    if ~exist(CONFIG.report.directory,'file'), mkdir(CONFIG.report.directory); end
+    % save EEG data
+    filename = [filename '.set'];
     pop_saveset(EEG,'filepath',CONFIG.filepath,'filename',filename);
     fprintf('Saved EEG file ''%s'' under the folder ''%s''\n',filename, CONFIG.filepath);
+    
+    % save raw data information
+    if ~ISPREP
+        config_import = CONFIG.rawinfo;
+        save([CONFIG.report.directory filesep 'config_import.mat'],'config_import');
+    else
+        config_prep = CONFIG.prep;
+        save([CONFIG.report.directory filesep 'config_prep.mat'],'config_prep');
+    end
 end
 
 end
@@ -175,54 +236,6 @@ EEG = eeg_checkset( EEG );
 end
 
 
-function [EEG, CONFIG] = remove_badchan(EEG,CONFIG)
-
-raw_channel_labels = {EEG.chanlocs.labels};
-
-% option 1: using pop_rejchan
-if CONFIG.DO_RMBADCHAN_REJCHAN  
-    low_freq = CONFIG.filter_hp_cutoff;
-    high_freq = CONFIG.filter_lp_cutoff;
-    
-    if isempty(low_freq), low_freq = 1; end
-    if isempty(high_freq), high_freq = EEG.srate / 2; end
-    
-    EEG = pop_rejchan(EEG, 'threshold',[-3 3],'norm','on','measure','spec','freqrange',[low_freq high_freq]);
-    EEG = eeg_checkset( EEG );
-    
-    clean_channel_labels_rejchan = {EEG.chanlocs.labels};
-    badchan_labels_rejchan = setdiff(raw_channel_labels, clean_channel_labels_rejchan);
-    CONFIG.report.badchan_rejchan = badchan_labels_rejchan;
-    disp('Removed channels via pop_rejchan:')
-    disp(badchan_labels_rejchan)
-end
-
-% option 2: usign clean_rawdata
-if CONFIG.DO_RMBADCHAN_CLEANRAW     
-    EEG_clean = clean_rawdata(EEG, CONFIG.rmchan_flatline, -1, CONFIG.rmchan_mincorr, CONFIG.rmchan_linenoise, -1, -1);
-    try
-        if CONFIG.VIS_CLEAN
-            vis_artifacts(EEG_clean,EEG);
-        end
-    catch
-        disp('Unsuccessful attempt to call vis_artifacts for visualization');
-    end
-    EEG = EEG_clean;
-    EEG = eeg_checkset( EEG );
-    
-    clean_channel_labels_cleanraw = {EEG.chanlocs.labels};
-    badchan_labels_cleanraw = setdiff(raw_channel_labels, clean_channel_labels_cleanraw);
-    CONFIG.report.badchan_cleanraw = badchan_labels_cleanraw;
-    disp('Removed channels via clean_rawdata:')
-    disp(badchan_labels_cleanraw)
-end
-
-% option 3: eeg_detect_bad_channels from Jason's AMICA plugin
-
-
-end
-
-
 function [EEG, CONFIG] = remove_linenoise(EEG,CONFIG)
 
 % option 1: cleanline
@@ -241,13 +254,90 @@ EEG = eeg_checkset(EEG);
 end
 
 
+function [EEG, CONFIG] = remove_badchan(EEG,CONFIG)
+
+CONFIG.prep.chanlocs_pre = EEG.chanlocs;
+CONFIG.prep.chanlocs_labels_pre = {EEG.chanlocs.labels};
+
+% option 1: using pop_rejchan
+if CONFIG.DO_RMBADCHAN_REJCHAN  
+    low_freq = CONFIG.filter_hp_cutoff;
+    high_freq = CONFIG.filter_lp_cutoff;
+
+    if isempty(low_freq), low_freq = 1; end
+    if isempty(high_freq), high_freq = EEG.srate / 2; end
+    
+    EEG = pop_rejchan(EEG, 'threshold',[-3 3],'norm','on','measure','spec','freqrange',[low_freq high_freq]);
+    EEG = eeg_checkset( EEG );
+    
+    channel_labels_rejchan = {EEG.chanlocs.labels};
+    CONFIG.prep.badchan_rejchan = setdiff(CONFIG.prep.chanlocs_labels_pre, channel_labels_rejchan);
+    disp('Removed channels via pop_rejchan:')
+    disp(CONFIG.prep.badchan_rejchan)
+end
+
+% option 2: usign clean_rawdata
+if CONFIG.DO_RMBADCHAN_CLEANRAW   
+    
+    % remove flat-line channels
+    channel_labels_pre = {EEG.chanlocs.labels};
+    EEG = clean_flatlines(EEG,CONFIG.rmchan_flatline);
+    channel_labels_flatlines = {EEG.chanlocs.labels};
+    CONFIG.prep.badchan_flatlines = setdiff(channel_labels_pre, channel_labels_flatlines);
+    disp('Removed flat-line channels:')
+    disp(CONFIG.prep.badchan_flatlines)
+    
+    % remove noisy channels by correlation and line-noise thresholds
+    channel_crit_maxbad_time = 0.5;
+    nolocs_channel_crit = 0.45;
+    nolocs_channel_crit_excluded = 0.1;
+    try
+        EEG = clean_channels(EEG,CONFIG.rmchan_mincorr,CONFIG.rmchan_linenoise,[],channel_crit_maxbad_time);
+    catch e
+        if strcmp(e.identifier,'clean_channels:bad_chanlocs')
+            disp('Your dataset appears to lack correct channel locations; using a location-free channel cleaning method.');
+            EEG = clean_channels_nolocs(EEG,nolocs_channel_crit,nolocs_channel_crit_excluded,[],channel_crit_maxbad_time);
+        else
+            rethrow(e);
+        end
+    end
+    CONFIG.prep.badchan_corrnoise = setdiff(channel_labels_flatlines, {EEG.chanlocs.labels});
+    disp('Removed noisy channels by correlation and line-noise thresholds:')
+    disp(CONFIG.prep.badchan_corrnoise)
+
+    % EEG_clean = clean_rawdata(EEG, CONFIG.rmchan_flatline, -1, CONFIG.rmchan_mincorr, CONFIG.rmchan_linenoise, -1, -1);
+    try
+        if CONFIG.VIS_CLEAN
+            vis_artifacts(EEG_clean,EEG);
+        end
+    catch
+        disp('Unsuccessful attempt to call vis_artifacts for visualization');
+    end
+    EEG = eeg_checkset( EEG );
+    
+end
+
+% option 3: eeg_detect_bad_channels from Jason's AMICA plugin
+CONFIG.prep.chanlocs_post = EEG.chanlocs;
+CONFIG.prep.chanlocs_labels_post = {EEG.chanlocs.labels};
+CONFIG.prep.num_chan_prep = EEG.nbchan;
+
+end
+
+
 function [EEG, CONFIG] = interp_badchan(EEG,CONFIG)
 
 % [TODO] interpolate removed bad channels 
+CONFIG.prep.interp_chan = [];
+CONFIG.prep.num_interp_chan = 0;
 if CONFIG.DO_INTERP_BADCHAN
-    EEG = pop_interp(EEG, EEG.chanlocs, 'spherical');
+    CONFIG.prep.interp_chan = setdiff(CONFIG.prep.chanlocs_labels_pre, CONFIG.prep.chanlocs_labels_post);
+    CONFIG.prep.num_interp_chan = length(CONFIG.prep.interp_chan);
+    
+    EEG = pop_interp(EEG, CONFIG.prep.chanlocs_pre, 'spherical');
     EEG = eeg_checkset(EEG );
 end
+CONFIG.prep.num_chan_total = EEG.nbchan;
 
 end
 
@@ -364,10 +454,10 @@ function [EEG, CONFIG] = waveica_autoclean(EEG,CONFIG)
 end
 
 
-function [EEG, CONFIG] = compute_bandpower(EEG,CONFIG)
+function [EEG, CONFIG] = power_analysis(EEG,CONFIG)
 
 % compute power spectra density (PSD)
-[spectra,freqs] = spectopo(EEG.data, 0, EEG.srate);
+[spectra,freqs] = spectopo(EEG.data, 0, EEG.srate); close
 
 % Set the following frequency bands: delta=1-4, theta=4-8, alpha=8-13, beta=13-30, gamma=30-80.
 CONFIG.report.power_delta = mean(10.^(spectra(:, freqs>=1 & freqs<4 )/10),2);
@@ -376,25 +466,28 @@ CONFIG.report.power_alpha = mean(10.^(spectra(:, freqs>=8 & freqs<13 )/10),2);
 CONFIG.report.power_beta  = mean(10.^(spectra(:, freqs>=13 & freqs<30 )/10),2);
 CONFIG.report.power_gamma = mean(10.^(spectra(:, freqs>=30 & freqs<80 )/10),2);
 
+% compute relative power
+total_power = sum([CONFIG.report.power_delta,CONFIG.report.power_theta,CONFIG.report.power_alpha, ...
+    CONFIG.report.power_beta,CONFIG.report.power_gamma],2);
+CONFIG.report.rpower_delta = CONFIG.report.power_delta ./ total_power;
+CONFIG.report.rpower_theta = CONFIG.report.power_theta ./ total_power;
+CONFIG.report.rpower_alpha = CONFIG.report.power_alpha ./ total_power;
+CONFIG.report.rpower_beta  = CONFIG.report.power_beta ./ total_power;
+CONFIG.report.rpower_gamma = CONFIG.report.power_gamma ./ total_power;
+
+% compute frontal alpha asymmetry
+try
+    frontal_channels = {'F3','F4','F7','F8'};
+    frontal_alpha = zeros(1,length(frontal_channels));
+    for chan_id = 1:length(frontal_channels)
+        ch = strcmp(frontal_channels{chan_id},CONFIG.prep.chanlocs_labels_pre);
+        frontal_alpha(chan_id) = CONFIG.report.power_alpha(ch);
+    end
+    CONFIG.report.frontal_alpha_asym_F34 = (frontal_alpha(1) - frontal_alpha(2)) / (frontal_alpha(1) + frontal_alpha(2));
+    CONFIG.report.frontal_alpha_asym_F78 = (frontal_alpha(3) - frontal_alpha(4)) / (frontal_alpha(3) + frontal_alpha(4));
+catch
+    disp('Errors when computing frontal alpha asymmetry. Might be missing channels')
 end
 
-
-function [EEG, CONFIG] = gen_report(EEG,CONFIG)
-
-% % generate output table in the "preprocessed" subfolder listing the subject file name and relevant variables for assesssing how good/bad that datafile was and how well the pipeline worked
-% outputtable=table({filename},EEG.xmax',Number_Channels_User_Selected',Number_Segments_Post_Segment_Rejection',...
-%     Number_Good_Channels_Selected', Percent_Good_Channels_Selected', Interpolated_Channel_IDs',Number_ICs_Rejected',...
-%     Percent_ICs_Rejected', Percent_Variance_Kept_of_Post_Waveleted_Data',Median_Artifact_Probability_of_Kept_ICs',...
-%     Mean_Artifact_Probability_of_Kept_ICs',Range_Artifact_Probability_of_Kept_ICs',Min_Artifact_Probability_of_Kept_ICs',...
-%     Max_Artifact_Probability_of_Kept_ICs');
-% outputtable.Properties.VariableNames ={'FileNames','File_Length_In_Secs','Number_Channels_User_Selected','Number_Segments_Post_Segment_Rejection',...
-%     'Number_Good_Channels_Selected', 'Percent_Good_Channels_Selected', 'Interpolated_Channel_IDs','Number_ICs_Rejected',...
-%     'Percent_ICs_Rejected', 'Percent_Variance_Kept_of_Post_Waveleted_Data','Median_Artifact_Probability_of_Kept_ICs',...
-%     'Mean_Artifact_Probability_of_Kept_ICs','Range_Artifact_Probability_of_Kept_ICs','Min_Artifact_Probability_of_Kept_ICs',...
-%     'Max_Artifact_Probability_of_Kept_ICs'};
-% 
-% writetable(outputtable, ['HAPPE_output_table ',datestr(now,'dd-mm-yyyy'),'.csv']);
-
 end
-
 
