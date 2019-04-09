@@ -43,7 +43,7 @@ else
     
     % advance cleaning pipeline
     [EEG, CONFIG] = asr_autoclean(EEG,CONFIG);
-    % [EEG, CONFIG] = ica_autoclean(EEG,CONFIG);
+    [EEG, CONFIG] = ica_autoclean(EEG,CONFIG);
     % [EEG, CONFIG] = waveica_autoclean(EEG,CONFIG);
     
     % save preprocessed data
@@ -377,7 +377,12 @@ end
 function [EEG, CONFIG] = ica_autoclean(EEG,CONFIG)
 
 % run ICA to evaluate components this time
-EEG = pop_runica(EEG, 'extended',1,'interupt','on');
+num_pcs = CONFIG.prep.num_chan_prep; % after bad channel rejection
+if strcmpi(CONFIG.reref_choice, 'avg') || strcmpi(CONFIG.reref_choice, 'average')
+    num_pcs = num_pcs - 1; % after average reference
+end
+
+EEG = pop_runica(EEG, 'extended',1,'pca',num_pcs,'interupt','on');
 EEG = eeg_checkset( EEG );
 
 

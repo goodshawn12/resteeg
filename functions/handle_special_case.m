@@ -45,6 +45,23 @@ elseif contains(EEG.chanlocs(1).labels,'LE')  % linked-ear setting
     EEG.chanlocs = chanlocs;
     EEG = eeg_checkset(EEG);
     
+elseif contains(EEG.chanlocs(1).labels,'-(A1~A2)')  % linked-ear setting
+
+    % modify channel labels to match with template
+    chanlocs = EEG.chanlocs;
+    for it = 1:length({EEG.chanlocs.labels})
+        
+        label = extractBefore(EEG.chanlocs(it).labels,'-(A1~A2)');
+        
+        if ~isempty(label)
+            chanlocs(it).labels = label;
+        else
+            chanlocs(it) = [];
+        end
+    end
+    EEG.chanlocs = chanlocs;
+    EEG = eeg_checkset(EEG);
+
 else
     error('Unseen format of channel labels');
 end
