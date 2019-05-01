@@ -7,10 +7,10 @@
 %   - Data Processing --> view_props
 
 % define folder path
-path_eeglab = 'C:\Users\shawn\Desktop\RESTEEG\happe\Packages\eeglab14_0_0b\';
-path_resteeg = 'C:\Users\shawn\Desktop\RESTEEG\resteeg\';
-path_datafolder = 'C:\Users\shawn\Desktop\RESTEEG\data\Singh_Shu\R61_15\';
+path_eeglab = 'C:\Users\shh078\Documents\resteeg\dependencies\eeglab\';
+path_resteeg = 'C:\Users\shh078\Documents\resteeg\';
 path_chanlocs = [path_resteeg 'chanlocs\chanlocs_quick30.mat'];
+path_datafolder = [];
 
 file_format = 'bdf';
 file_list = {};
@@ -22,20 +22,16 @@ if isempty(which('eeglab'))
 end
 
 cd(path_resteeg);
-addpath(genpath('./'))
-
+addpath('functions')
+addpath('chanlocs')
 
 %% ------------------------------------------------------------------------
 %            Define data path and file name
 % -------------------------------------------------------------------------
 
 % manually select datasets if not defined
-if isempty(file_list)
-    if ~isempty(path_datafolder)
-        [file_list,path_datafolder] = uigetfile([path_datafolder '*.', file_format],'Select One or More Files','MultiSelect', 'on');
-    else
-        [file_list,path_datafolder] = uigetfile(['*.', file_format],'Select One or More Files','MultiSelect', 'on');
-    end
+if isempty(file_list) || isempty(path_datafolder)
+    [file_list,path_datafolder] = uigetfile(['*.' file_format],'Select One or More Files','MultiSelect', 'on');
 end
     
 % remove file extension in the file name
@@ -99,7 +95,7 @@ CONFIG.ICrej_thres = 0.5;       % reject artifact components when ICLabel classi
                                 
 %% run automated analysis of resting-state eeg
 
-for file_id = 1:length(CONFIG.filename_list)
+for file_id = length(CONFIG.filename_list):-1:1
     
     CONFIG.filename = CONFIG.filename_list{file_id};
     CONFIG.filename_prep = [CONFIG.filename '_prep'];
@@ -107,6 +103,7 @@ for file_id = 1:length(CONFIG.filename_list)
     
     % run resteeg
     CONFIG = resteeg(CONFIG);
+        
 end
 
 

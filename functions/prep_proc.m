@@ -215,8 +215,8 @@ CONFIG.prep.ICrej_linenoise = find(EEG.etc.ic_classification.ICLabel.classificat
 CONFIG.prep.ICrej_channoise = find(EEG.etc.ic_classification.ICLabel.classifications(:,6)>CONFIG.ICrej_thres);
 
 % reject components and remove their activity from data
-EEG = pop_subcomp( EEG, [CONFIG.prep.ICrej_muscle, CONFIG.prep.ICrej_eye, CONFIG.prep.ICrej_heart, ...
-    CONFIG.prep.ICrej_linenoise, CONFIG.prep.ICrej_channoise], 0);
+EEG = pop_subcomp( EEG, [CONFIG.prep.ICrej_muscle; CONFIG.prep.ICrej_eye; CONFIG.prep.ICrej_heart; ...
+    CONFIG.prep.ICrej_linenoise; CONFIG.prep.ICrej_channoise], 0);
 
 end
 

@@ -120,6 +120,6 @@ add(rpt,chap3);
 % Close the report (required)
 close(rpt);
 % Display the report (optional)
-rptview(rpt);
+% rptview(rpt);
 
 end
