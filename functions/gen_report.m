@@ -19,7 +19,7 @@ add(rpt,titlepg);
 add(rpt,TableOfContents);
 
 % Chapter 1: basic data info 
-chap1 = Chapter('Raw data information and cleaning report');
+chap1 = Chapter('Raw data information and basic cleaning report');
 table_basic = BaseTable( ...
     {'File name:            ', [CONFIG.filename, CONFIG.fileformat];
      'Number of Channels:   ', CONFIG.rawinfo.nbchan;
@@ -39,16 +39,37 @@ table_clean = BaseTable( ...
     {'Bad channel removed (stat):   ', sprintf('%s ',CONFIG.prep.badchan_rejchan{:});
      'Bad channel removed (flatline):', sprintf('%s ',CONFIG.prep.badchan_flatlines{:});
      'Bad channel removed (corr):   ', sprintf('%s ',CONFIG.prep.badchan_corrnoise{:});
-     'Number of clean channels:     ', CONFIG.prep.num_chan_prep;
+     'Number of clean channels:     ', CONFIG.prep.num_chan_prep; 
      'Interpolated Channels:        ', sprintf('%s ',CONFIG.prep.interp_chan{:})
      'Number of channels after preprocess:', CONFIG.prep.num_chan_total;
      });
-add(chap1, Section('Title', 'Cleaning Report', 'Content', table_clean));
+add(chap1, Section('Title', 'Basic cleaning report', 'Content', table_clean));
 add(rpt,chap1);
 
 
 % Chapter
-chap2 = Chapter('Band-Power Related Measures');
+chap2 = Chapter('Advanced cleaning report ');
+table_asr = BaseTable({'Artifact Subspace Reconstruction (ASR) threshold: ', num2str(CONFIG.asr_stdcutoff)});
+add(chap2, Section('Title', 'ASR cleaning', 'Content', table_asr));
+
+image_ICLabel = Image([CONFIG.report.directory filesep 'ICLabel.png']);
+image_ICLabel.Style = {ScaleToFit};
+add(chap2, Section('Title', 'ICA and IC classification results', 'Content', image_ICLabel));
+
+table_ica = BaseTable(...
+    {'IC rejection threshold:', num2str(CONFIG.ICrej_thres);
+     'Rejected Muscle ICs:', sprintf('%d ',CONFIG.prep.ICrej_muscle);
+     'Rejected Eye ICs:', sprintf('%d ',CONFIG.prep.ICrej_eye);
+     'Rejected heart ICs:', sprintf('%d ',CONFIG.prep.ICrej_heart);
+     'Rejected Line Noise ICs:', sprintf('%d ',CONFIG.prep.ICrej_linenoise);
+     'Rejected Chan Noise ICs:', sprintf('%d ',CONFIG.prep.ICrej_channoise);
+    });
+add(chap2, Section('Title', 'Rejected Components', 'Content', table_ica));
+add(rpt,chap2);
+
+
+% Chapter
+chap3 = Chapter('Band-power related measures');
 
 % display absolute power 
 image_size = {Width('1.2in')};
@@ -64,7 +85,7 @@ image_pgamma = Image([CONFIG.report.directory filesep 'power_gamma.png']);
 image_pgamma.Style = image_size;
 table_power = BaseTable({'Delta', 'Theta', 'Alpha', 'Beta', 'Gamma'; ...
                         image_pdelta,image_ptheta,image_palpha,image_pbeta,image_pgamma});
-add(chap2, Section('Title', 'Absolute power', 'Content', table_power));
+add(chap3, Section('Title', 'Absolute power', 'Content', table_power));
 
 % display relative power 
 image_size = {Width('1.2in')};
@@ -80,20 +101,20 @@ image_rpgamma = Image([CONFIG.report.directory filesep 'rpower_gamma.png']);
 image_rpgamma.Style = image_size;
 table_rpower = BaseTable({'Delta', 'Theta', 'Alpha', 'Beta', 'Gamma'; ...
                         image_rpdelta,image_rptheta,image_rpalpha,image_rpbeta,image_rpgamma});
-add(chap2, Section('Title', 'Relative power', 'Content', table_rpower));
+add(chap3, Section('Title', 'Relative power', 'Content', table_rpower));
 
 % display frontal alpha asymmetry
-add(chap2, Section('Title', 'Frontal alpha asymmetry'));
+add(chap3, Section('Title', 'Frontal alpha asymmetry'));
 if isfield(CONFIG.report,'frontal_alpha_asym_F34')
     par1 = Paragraph(sprintf('(F3 - F4) / (F3 + F4) = %f', CONFIG.report.frontal_alpha_asym_F34));
-    add(chap2,par1);
+    add(chap3,par1);
 end
 if isfield(CONFIG.report,'frontal_alpha_asym_F78')
     par2 = Paragraph(sprintf('(F7 - F8) / (F7 + F8) = %f', CONFIG.report.frontal_alpha_asym_F78));
-    add(chap2,par2);
+    add(chap3,par2);
 end
 
-add(rpt,chap2);
+add(rpt,chap3);
 
 
 % Close the report (required)
