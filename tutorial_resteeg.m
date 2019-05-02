@@ -7,8 +7,10 @@
 %   - Data Processing --> view_props
 
 % define folder path
-path_eeglab = 'C:\Users\shh078\Documents\resteeg\dependencies\eeglab\';
-path_resteeg = 'C:\Users\shh078\Documents\resteeg\';
+path_eeglab = 'C:\Users\shawn\Desktop\RESTEEG\happe\Packages\eeglab14_0_0b\';
+path_resteeg = 'C:\Users\shawn\Desktop\RESTEEG\resteeg\';
+% path_eeglab = 'C:\Users\shh078\Documents\resteeg\dependencies\eeglab\';
+% path_resteeg = 'C:\Users\shh078\Documents\resteeg\';
 path_chanlocs = [path_resteeg 'chanlocs\chanlocs_quick30.mat'];
 path_datafolder = [];
 
@@ -33,7 +35,7 @@ addpath('chanlocs')
 if isempty(file_list) || isempty(path_datafolder)
     [file_list,path_datafolder] = uigetfile(['*.' file_format],'Select One or More Files','MultiSelect', 'on');
 end
-    
+
 % remove file extension in the file name
 CONFIG.filename_list = cell(1,length(file_list));
 for file_id = 1:length(file_list)
@@ -60,7 +62,7 @@ CONFIG.HANDLE_SPECIAL_CASE = 0;
 CONFIG.SAVESET = 1;
 CONFIG.double_precision = 1;            % use double precision (e.g. avoid round-off errors in runica)
 
-% setting: generate report        
+% setting: generate report
 CONFIG.EXPORT_REPORT = 1;
 CONFIG.GEN_FIGURES = 1;
 CONFIG.VIS_CLEAN = 0;
@@ -76,23 +78,23 @@ CONFIG.reref_choice = 'average';
 
 % bad channel removal criteria (using clean_rawdata)
 CONFIG.rmchan_flatline = 5;     % Maximum tolerated flatline duration. In seconds. If a channel has a longer
-                                % flatline than this, it will be considered abnormal. Default: 5
+% flatline than this, it will be considered abnormal. Default: 5
 CONFIG.rmchan_mincorr = 0.85;   % Minimum channel correlation. If a channel is correlated at less than this
-                                % value to a reconstruction of it based on other channels, it is considered
-                                % abnormal in the given time window. This method requires that channel
-                                % locations are available and roughly correct; otherwise a fallback criterion
-                                % will be used. (default: 0.85)
+% value to a reconstruction of it based on other channels, it is considered
+% abnormal in the given time window. This method requires that channel
+% locations are available and roughly correct; otherwise a fallback criterion
+% will be used. (default: 0.85)
 CONFIG.rmchan_linenoise = 4;    % If a channel has more line noise relative to its signal than this value, in
-                                % standard deviations based on the total channel population, it is considered
-                                % abnormal. (default: 4)
+% standard deviations based on the total channel population, it is considered
+% abnormal. (default: 4)
 
 % advanced cleaning setting
 CONFIG.asr_stdcutoff = 20;      % Standard deviation cutoff for removal of bursts (via ASR)
-CONFIG.ICrej_thres = 0.5;       % reject artifact components when ICLabel classifies them as 
-                                % muscle, eye, heart, line noise, and channel noise 
-                                % with probability > threshold
-               
-                                
+CONFIG.ICrej_thres = 0.5;       % reject artifact components when ICLabel classifies them as
+% muscle, eye, heart, line noise, and channel noise
+% with probability > threshold
+
+
 %% run automated analysis of resting-state eeg
 
 for file_id = length(CONFIG.filename_list):-1:1
@@ -103,7 +105,7 @@ for file_id = length(CONFIG.filename_list):-1:1
     
     % run resteeg
     CONFIG = resteeg(CONFIG);
-        
+    
 end
 
 
@@ -116,5 +118,17 @@ end
 %     'R61_14_8week_EC_report', ...
 %     'R61_14_12week_EC_report', ...
 %     'R61_14_16week_EC_report'};
-% 
+%
 % gen_report_cross_subjects(filepath,filename,folder_list);
+
+
+%% Export desired features to Excel Sheet
+
+% select report folders to be processed
+datafolder_list = uigetfile_n_dir;
+[feature_out, session_name, feature_name] = export_feature(datafolder_list);
+
+% write to Excel sheet
+filename = 'Result_Baseline_Power.xlsx';
+export_excel(filename, feature_out, session_name, feature_name);
+
