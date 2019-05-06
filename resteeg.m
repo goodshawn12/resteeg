@@ -5,13 +5,13 @@ function CONFIG = resteeg(CONFIG)
 % -------------------------------------------------------------------------
 
 % load EEG dataset if already exists, otherwise convert data to EEGLAB (.set) format
-if exist([CONFIG.filepath filesep CONFIG.filename '.set'],'file') && ~CONFIG.FORCE_RUN_IMPORT
-    EEG = pop_loadset([CONFIG.filepath filesep CONFIG.filename '.set']);
+if exist([CONFIG.filepath filesep CONFIG.filename '_import.set'],'file') && ~CONFIG.FORCE_RUN_IMPORT
+    EEG = pop_loadset([CONFIG.filepath filesep CONFIG.filename '_import.set']);
     tmp = load([CONFIG.report.directory filesep 'config_import.mat']);
     CONFIG.rawinfo = tmp.config_import;
 else
     [EEG, CONFIG] = prep_import(CONFIG);
-    [EEG, CONFIG] = save_data(EEG,CONFIG,CONFIG.filename,0);
+    [EEG, CONFIG] = save_data(EEG,CONFIG,[CONFIG.filename '_import'],0);
 end
 
 
@@ -20,13 +20,13 @@ end
 % -------------------------------------------------------------------------
 
 % load preprocessed EEG data if already exists, otherwise apply preprocessing pipeline
-if exist([CONFIG.filepath filesep CONFIG.filename_prep '.set'],'file') && ~CONFIG.FORCE_RUN_PREPROC
-    EEG = pop_loadset([CONFIG.filepath filesep CONFIG.filename_prep '.set']);
+if exist([CONFIG.filepath filesep CONFIG.filename '_prep.set'],'file') && ~CONFIG.FORCE_RUN_PREPROC
+    EEG = pop_loadset([CONFIG.filepath filesep CONFIG.filename '_prep.set']);
     tmp = load([CONFIG.report.directory filesep 'config_prep.mat']);
     CONFIG.prep = tmp.config_prep;
 else
     [EEG, CONFIG] = prep_proc(EEG,CONFIG);
-    [EEG, CONFIG] = save_data(EEG,CONFIG,CONFIG.filename_prep,1);
+    [EEG, CONFIG] = save_data(EEG,CONFIG,[CONFIG.filename '_prep'],1);
 end
 
 %% ------------------------------------------------------------------------
@@ -37,7 +37,7 @@ end
 [EEG, CONFIG] = power_analysis(EEG,CONFIG);
 
 % Short-time Fourier Transform (STFT)
-% [EEG, CONFIG] = time_freq_analysis(EEG,CONFIG);
+[EEG, CONFIG] = time_freq_analysis(EEG,CONFIG);
 
 
 %% ------------------------------------------------------------------------
@@ -78,7 +78,7 @@ end
 % microstate analysis
 % AMICA 
 % Nonlinear dynamic model / Dynamic causal modeling
-
+  
 
 %% ------------------------------------------------------------------------
 %                   Generate Report
@@ -88,7 +88,6 @@ if CONFIG.EXPORT_REPORT
     [EEG, CONFIG] = gen_report_materials(EEG,CONFIG);
     [EEG, CONFIG] = gen_report(EEG,CONFIG);
 end
-  
 
 end
 
@@ -104,7 +103,6 @@ end
 if CONFIG.SAVESET
     if ~exist(CONFIG.report.directory,'file'), mkdir(CONFIG.report.directory); end
     % save EEG data
-    filename = [filename '.set'];
     pop_saveset(EEG,'filepath',CONFIG.filepath,'filename',filename);
     fprintf('Saved EEG file ''%s'' under the folder ''%s''\n',filename, CONFIG.filepath);
     
@@ -161,19 +159,32 @@ end
 
 function [EEG, CONFIG] = time_freq_analysis(EEG,CONFIG)
 
-channel_id = 1;
-window_len = 2;     % sec
-window = hann(window_len*EEG.srate);
-noverlap = floor(length(window)/2);
-nfft = max(256, 2.^ceil(log2(length(window))));
-[s,f,t] = spectrogram(EEG.data(channel_id,:),window,noverlap,nfft,EEG.srate);
-
-freq_range = 1:(find(f>50,1)-1);
-log_power = log(abs(s(freq_range,:)).^2);
-figure, imagesc(t,f(freq_range),log_power); set(gca,'YDir','normal'); colorbar
-caxis([prctile(log_power(:),0.25),max(log_power(:))]);
-xlabel('Time (sec)'); ylabel('Frequency (Hz)'); set(gca,'fontsize',12);
-title(sprintf('Channel %s (log power)',EEG.chanlocs(channel_id).labels));
+if ~isempty(CONFIG.report.timefreq_plot_chan)
+    window_len = CONFIG.report.timefreq_window_len;
+    for chan_id = 1:length(CONFIG.report.timefreq_plot_chan)
+        channel = find(strcmpi({EEG.chanlocs.labels},CONFIG.report.timefreq_plot_chan{chan_id}));
+        
+        if isempty(channel)
+            error('Incorrect channel label for time frequency plot')
+        end
+        
+        window = hann(window_len*EEG.srate);
+        noverlap = floor(length(window)/2);
+        nfft = max(256, 2.^ceil(log2(length(window))));
+        [s,f,t] = spectrogram(EEG.data(channel,:),window,noverlap,nfft,EEG.srate);
+        
+        freq_range = 1:(find(f>50,1)-1);
+        log_power = log(abs(s(freq_range,:)).^2);
+        figure, imagesc(t,f(freq_range),log_power); set(gca,'YDir','normal'); colorbar
+        caxis([prctile(log_power(:),0.25),max(log_power(:))]);
+        xlabel('Time (sec)'); ylabel('Frequency (Hz)'); set(gca,'fontsize',12); colormap('jet');
+        title(sprintf('Channel %s (log power)',EEG.chanlocs(channel).labels));
+        set(gcf,'position',[50,50,850,350])
+        
+        filename = sprintf('tfplot_%s',CONFIG.report.timefreq_plot_chan{chan_id});
+        saveas(gcf,[CONFIG.report.directory filesep filename],'png'); close
+    end
+end
 
 end
 

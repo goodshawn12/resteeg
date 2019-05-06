@@ -13,7 +13,7 @@ rpt = Report([CONFIG.report.directory filesep CONFIG.filename],'pdf');
 % Types of content added here: title 
 % page and table of contents reporters
 titlepg = TitlePage;
-titlepg.Title = 'RESTEEG:Automated Analysis of Resting-State EEG for Clinicians';
+titlepg.Title = 'RESTEEG: Automated Analysis of Resting-State EEG for Clinicians';
 titlepg.Author = 'Sheng-Hsiou Hsu';
 add(rpt,titlepg);
 add(rpt,TableOfContents);
@@ -21,7 +21,7 @@ add(rpt,TableOfContents);
 % Chapter 1: basic data info 
 chap1 = Chapter('Raw data information and basic cleaning report');
 table_basic = BaseTable( ...
-    {'File name:            ', [CONFIG.filename, CONFIG.fileformat];
+    {'File name:            ', [CONFIG.filename, '.', CONFIG.fileformat];
      'Number of Channels:   ', CONFIG.rawinfo.nbchan;
      'Total Time (sec):     ', round(CONFIG.rawinfo.xmax);
      'Sampling Rate (Hz):   ', CONFIG.rawinfo.srate});
@@ -29,6 +29,7 @@ add(chap1, Section('Title', 'Raw data information', 'Content', table_basic));
 
 table_prep = BaseTable( ...
     {'Manually removed channel:     ', sprintf('%s, ',CONFIG.chan_to_rm{:}) ;
+     'Manually selected time window:', sprintf('%d to %d sec',CONFIG.time_window(1),CONFIG.time_window(2));
      'Resampling (Hz):              ', CONFIG.resample_rate;
      'High-pass filter cutoff (Hz): ', CONFIG.filter_hp_cutoff;
      'Low-pass filter cutoff (Hz):  ', CONFIG.filter_lp_cutoff;
@@ -102,24 +103,37 @@ image_rpgamma.Style = image_size;
 table_rpower = BaseTable({'Delta', 'Theta', 'Alpha', 'Beta', 'Gamma'; ...
                         image_rpdelta,image_rptheta,image_rpalpha,image_rpbeta,image_rpgamma});
 add(chap3, Section('Title', 'Relative power', 'Content', table_rpower));
-
-% display frontal alpha asymmetry
-add(chap3, Section('Title', 'Frontal alpha asymmetry'));
-if isfield(CONFIG.report,'frontal_alpha_asym_F34')
-    par1 = Paragraph(sprintf('(F3 - F4) / (F3 + F4) = %f', CONFIG.report.frontal_alpha_asym_F34));
-    add(chap3,par1);
-end
-if isfield(CONFIG.report,'frontal_alpha_asym_F78')
-    par2 = Paragraph(sprintf('(F7 - F8) / (F7 + F8) = %f', CONFIG.report.frontal_alpha_asym_F78));
-    add(chap3,par2);
-end
-
 add(rpt,chap3);
 
+% % display frontal alpha asymmetry
+% add(chap3, Section('Title', 'Frontal alpha asymmetry'));
+% if isfield(CONFIG.report,'frontal_alpha_asym_F34')
+%     par1 = Paragraph(sprintf('(F3 - F4) / (F3 + F4) = %f', CONFIG.report.frontal_alpha_asym_F34));
+%     add(chap3,par1);
+% end
+% if isfield(CONFIG.report,'frontal_alpha_asym_F78')
+%     par2 = Paragraph(sprintf('(F7 - F8) / (F7 + F8) = %f', CONFIG.report.frontal_alpha_asym_F78));
+%     add(chap3,par2);
+% end
+
+% chapter 4: time frequency deomposition plots
+if isfield(CONFIG.report,'timefreq_plot_chan')
+    if ~isempty(CONFIG.report.timefreq_plot_chan)
+        % new chapter
+        chap4 = Chapter('Time frequency decomposition');
+        for chan_id = 1:length(CONFIG.report.timefreq_plot_chan)
+            filename = sprintf('tfplot_%s.png',CONFIG.report.timefreq_plot_chan{chan_id});
+            image_tfplot = Image([CONFIG.report.directory filesep filename]);
+            image_tfplot.Style = {ScaleToFit};
+            add(chap4, Section('Title', CONFIG.report.timefreq_plot_chan{chan_id} , 'Content', image_tfplot));
+        end
+        add(rpt,chap4);
+    end
+end
 
 % Close the report (required)
 close(rpt);
 % Display the report (optional)
-% rptview(rpt);
+rptview(rpt);
 
 end

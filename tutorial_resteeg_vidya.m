@@ -9,7 +9,7 @@
 % define folder path
 path_eeglab = uigetdir(pwd, 'Please select your EEGLAB folder');
 path_resteeg = uigetdir(pwd, 'Please select the RESTEEG toolbox folder');
-path_chanlocs = [path_resteeg filesep 'chanlocs\chanlocs_quick30.mat'];
+path_chanlocs = [path_resteeg filesep 'chanlocs\chanlocs_nihonkohden.mat'];
 
 % set path for toolboxes
 if isempty(which('eeglab'))
@@ -25,7 +25,7 @@ addpath('chanlocs')
 %            Define data path and file name
 % -------------------------------------------------------------------------
 path_datafolder = [];
-file_format = 'bdf';
+file_format = 'set';
 file_list = {};
 
 % manually select datasets if not defined
@@ -37,17 +37,19 @@ end
 %            User defined settings
 % -------------------------------------------------------------------------
 
-% define labels of (non-EEG) channels to be moved
-CONFIG.chan_to_rm = {'ExG 1','ExG 2','Packet Counter','ExG 1','ExG 2', ...
-    'ACC0','ACC1','ACC2','ACC30','ACC31','ACC32','ACC33','ACC34'};
+% manually define labels of (non-EEG) channels to be moved
+CONFIG.chan_to_rm = {};
+
+% manually define data segments to be processed
+CONFIG.time_window = [25845,29626];  % in sec
 
 % setting: data import 
-CONFIG.FORCE_RUN_IMPORT = 1;                  % run data import pipeline and overwrite previous imported data
-CONFIG.FORCE_RUN_PREPROC = 1;                 % run preprocessing pipeline and overwrite previous preprocessed data
+CONFIG.FORCE_RUN_IMPORT = 0;                  % run data import pipeline and overwrite previous imported data
+CONFIG.FORCE_RUN_PREPROC = 0;                 % run preprocessing pipeline and overwrite previous preprocessed data
 CONFIG.HANDLE_SPECIAL_CASE = 0;
 
 CONFIG.SAVESET = 1;
-CONFIG.double_precision = 0;            % use double precision (e.g. avoid round-off errors in runica)
+CONFIG.double_precision = 1;            % use double precision (e.g. avoid round-off errors in runica)
 
 % setting: generate report
 CONFIG.EXPORT_REPORT = 1;
@@ -86,6 +88,10 @@ CONFIG.ICrej_thres = 0.5;       % reject artifact components when ICLabel classi
                                 % muscle, eye, heart, line noise, and channel noise
                                 % with probability > threshold
 
+% 
+CONFIG.report.timefreq_plot_chan = {'Fz','Cz','O1'};
+CONFIG.report.timefreq_window_len = 5;     % sec
+
 %% ------------------------------------------------------------------------
 %            Run automated analysis of resting-state eeg
 % -------------------------------------------------------------------------
@@ -109,7 +115,6 @@ fail_id = {};
 for file_id = 1:length(CONFIG.filename_list)
     
     CONFIG.filename = CONFIG.filename_list{file_id};
-    CONFIG.filename_prep = [CONFIG.filename '_prep'];
     CONFIG.report.directory = [CONFIG.filepath CONFIG.filename '_report'];
     
     % run resteeg toolbox
@@ -126,6 +131,7 @@ disp(fail_id)
 
 % %% generate cross-subjects report
 % gen_report_cross_subjects(filepath,filename,folder_list);
+
 
 
 %% ------------------------------------------------------------------------
