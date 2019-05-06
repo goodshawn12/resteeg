@@ -37,9 +37,12 @@ end
 %            User defined settings
 % -------------------------------------------------------------------------
 
-% define labels of (non-EEG) channels to be moved
+% manually define labels of (non-EEG) channels to be moved
 CONFIG.chan_to_rm = {'ExG 1','ExG 2','Packet Counter','ExG 1','ExG 2', ...
     'ACC0','ACC1','ACC2','ACC30','ACC31','ACC32','ACC33','ACC34'};
+
+% manually define data segments to be processed
+CONFIG.time_window = [];  % in sec
 
 % setting: data import 
 CONFIG.FORCE_RUN_IMPORT = 1;                  % run data import pipeline and overwrite previous imported data
@@ -85,6 +88,15 @@ CONFIG.asr_stdcutoff = 20;      % Standard deviation cutoff for removal of burst
 CONFIG.ICrej_thres = 0.5;       % reject artifact components when ICLabel classifies them as
                                 % muscle, eye, heart, line noise, and channel noise
                                 % with probability > threshold
+
+%% ------------------------------------------------------------------------
+%            Define parameters for generating report
+% -------------------------------------------------------------------------
+
+% compute and plot time frequency decomposition
+CONFIG.report.timefreq_plot_chan = {'Fz','Cz'};
+CONFIG.report.timefreq_window_len = 5;     % sec
+
 
 %% ------------------------------------------------------------------------
 %            Run automated analysis of resting-state eeg

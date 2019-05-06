@@ -84,16 +84,20 @@ end
 
 function [EEG, CONFIG] = select_time(EEG,CONFIG)
 
-if isfield(CONFIG, 'time_window')
+if ~isfield(CONFIG, 'time_window')
+    CONFIG.time_window = [];
+end
+
+if ~isempty(CONFIG.time_window)
     try
         EEG = pop_select(EEG,'time',CONFIG.time_window);
         EEG = eeg_checkset(EEG);
-        CONFIG.rawinfo.time_window = CONFIG.time_window;
     catch
         error('Selected time frame for processing is incorrect.')
     end
 else
-    CONFIG.rawinfo.time_window = [0, EEG.xmax];
+    CONFIG.time_window = [0, EEG.xmax];
 end
+CONFIG.rawinfo.time_window = CONFIG.time_window;
 
 end

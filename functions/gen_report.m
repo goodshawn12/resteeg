@@ -29,7 +29,7 @@ add(chap1, Section('Title', 'Raw data information', 'Content', table_basic));
 
 table_prep = BaseTable( ...
     {'Manually removed channel:     ', sprintf('%s, ',CONFIG.chan_to_rm{:}) ;
-     'Manually selected time window:', sprintf('%d to %d sec',CONFIG.time_window(1),CONFIG.time_window(2));
+     'Manually selected time window:', sprintf('%d to %d sec',CONFIG.rawinfo.time_window(1),CONFIG.rawinfo.time_window(2));
      'Resampling (Hz):              ', CONFIG.resample_rate;
      'High-pass filter cutoff (Hz): ', CONFIG.filter_hp_cutoff;
      'Low-pass filter cutoff (Hz):  ', CONFIG.filter_lp_cutoff;

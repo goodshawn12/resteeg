@@ -88,9 +88,14 @@ CONFIG.ICrej_thres = 0.5;       % reject artifact components when ICLabel classi
                                 % muscle, eye, heart, line noise, and channel noise
                                 % with probability > threshold
 
-% 
-CONFIG.report.timefreq_plot_chan = {'Fz','Cz','O1'};
+%% ------------------------------------------------------------------------
+%            Define parameters for generating report
+% -------------------------------------------------------------------------
+
+% compute and plot time frequency decomposition
+CONFIG.report.timefreq_plot_chan = {'Fz','Cz'};
 CONFIG.report.timefreq_window_len = 5;     % sec
+
 
 %% ------------------------------------------------------------------------
 %            Run automated analysis of resting-state eeg
