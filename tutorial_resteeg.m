@@ -7,9 +7,13 @@
 %   - Data Processing --> view_props
 
 % define folder path
-path_eeglab = uigetdir(pwd, 'Please select your EEGLAB folder');
-path_resteeg = uigetdir(pwd, 'Please select the RESTEEG toolbox folder');
-path_chanlocs = [path_resteeg filesep 'chanlocs\chanlocs_quick30.mat'];
+if ~exist('path_eeglab'), path_eeglab = uigetdir(pwd, 'Please select your EEGLAB folder'); end
+if ~exist('path_resteeg'), path_resteeg = uigetdir(pwd, 'Please select the RESTEEG toolbox folder'); end
+
+if path_eeglab == 0, disp('EEGLAB folder is not specified'); clear path_eeglab; return; end
+if path_resteeg == 0, disp('RESTEEG folder is not specified'); clear path_resteeg; return; end
+
+path_chanlocs = [path_resteeg filesep 'chanlocs' filesep 'chanlocs_quick30.mat'];
 
 % set path for toolboxes
 if isempty(which('eeglab'))
@@ -51,6 +55,7 @@ CONFIG.HANDLE_SPECIAL_CASE = 0;
 
 CONFIG.SAVESET = 1;
 CONFIG.double_precision = 0;            % use double precision (e.g. avoid round-off errors in runica)
+CONFIG.SAVE_EXCEL = 0;                  % output feature in Excel sheet
 
 % setting: generate report
 CONFIG.EXPORT_REPORT = 1;
@@ -144,11 +149,12 @@ disp(fail_id)
 %            Export desired features to Excel Sheet
 % -------------------------------------------------------------------------
 
-% select report folders to be processed
-datafolder_list = uigetfile_n_dir;
-[feature_out, session_name, feature_name] = export_feature(datafolder_list);
-
-% write to Excel sheet
-filename = 'Result_Baseline_Power.xlsx';
-export_excel(filename, feature_out, session_name, feature_name);
-
+if CONFIG.SAVE_EXCEL
+    % select report folders to be processed
+    datafolder_list = uigetfile_n_dir;
+    [feature_out, session_name, feature_name] = export_feature(datafolder_list);
+    
+    % write to Excel sheet
+    filename = 'Result_Baseline_Power.xlsx';
+    export_excel(filename, feature_out, session_name, feature_name);
+end
