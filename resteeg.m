@@ -54,6 +54,10 @@ end
 %           Connectivity and Coherence Analysis
 % -------------------------------------------------------------------------
 
+% coherence between channel pairs
+[EEG, CONFIG] = coherence_analysis(EEG,CONFIG);
+
+
 % power-amplitude coupling
 % power-phase coupling
 
@@ -184,6 +188,46 @@ if ~isempty(CONFIG.report.timefreq_plot_chan)
         filename = sprintf('tfplot_%s',CONFIG.report.timefreq_plot_chan{chan_id});
         saveas(gcf,[CONFIG.report.directory filesep filename],'png'); close
     end
+end
+
+end
+
+function [EEG, CONFIG] = coherence_analysis(EEG,CONFIG)
+
+try
+    if ~isempty(CONFIG.report.coh_chann_pair)
+        CONFIG.report.mscohere = zeros(5,length(CONFIG.report.coh_chann_pair)); % 5 bands x N channel-pairs
+        
+        % iterate through all channel pairs
+        for pair_id = 1:length(CONFIG.report.coh_chann_pair)
+            
+            channel_1 = find(strcmpi({EEG.chanlocs.labels},CONFIG.report.coh_chann_pair{pair_id}(1)));
+            channel_2 = find(strcmpi({EEG.chanlocs.labels},CONFIG.report.coh_chann_pair{pair_id}(2)));
+            
+            % option 1: MATLAB magnitude-squared coherence
+            nfft = 2.^(ceil(log2(EEG.srate)));
+            noverlap = floor(nfft/2);
+            [coh_msconhere,freqs] = mscohere(EEG.data(channel_1,:),EEG.data(channel_2,:), ...
+                hann(nfft), noverlap, nfft, EEG.srate);
+            
+            % plot coherence over frequency
+            freq_range = 1:(find(freqs>50,1)-1);
+            figure, plot(freqs(freq_range), coh_msconhere(freq_range));
+            xlabel('Frequency (Hz)'); ylabel('Magnitude-Squared Coherence'); set(gca,'fontsize',12);
+            filename = sprintf('mscoherence_%s-%s',EEG.chanlocs(channel_1).labels,EEG.chanlocs(channel_2).labels);
+            saveas(gcf,[CONFIG.report.directory filesep filename],'png'); close
+            
+            % report ms-coherence
+            CONFIG.report.mscohere(1,pair_id) = mean(coh_msconhere(freqs>=1 & freqs<4 ));
+            CONFIG.report.mscohere(2,pair_id) = mean(coh_msconhere(freqs>=4 & freqs<8 ));
+            CONFIG.report.mscohere(3,pair_id) = mean(coh_msconhere(freqs>=8 & freqs<13 ));
+            CONFIG.report.mscohere(4,pair_id)  = mean(coh_msconhere(freqs>=13 & freqs<30 ));
+            CONFIG.report.mscohere(5,pair_id) = mean(coh_msconhere(freqs>=30 & freqs<50 ));
+            
+        end
+    end
+catch
+    disp('Coherence analysis: channel labels were not correctly defined.')
 end
 
 end

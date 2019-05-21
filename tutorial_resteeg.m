@@ -49,8 +49,8 @@ CONFIG.chan_to_rm = {'ExG 1','ExG 2','Packet Counter','ExG 1','ExG 2', ...
 CONFIG.time_window = [];  % in sec
 
 % setting: data import 
-CONFIG.FORCE_RUN_IMPORT = 1;                  % run data import pipeline and overwrite previous imported data
-CONFIG.FORCE_RUN_PREPROC = 1;                 % run preprocessing pipeline and overwrite previous preprocessed data
+CONFIG.FORCE_RUN_IMPORT = 0;                  % run data import pipeline and overwrite previous imported data
+CONFIG.FORCE_RUN_PREPROC = 0;                 % run preprocessing pipeline and overwrite previous preprocessed data
 CONFIG.HANDLE_SPECIAL_CASE = 0;
 
 CONFIG.SAVESET = 1;
@@ -101,7 +101,8 @@ CONFIG.ICrej_thres = 0.5;       % reject artifact components when ICLabel classi
 % compute and plot time frequency decomposition
 CONFIG.report.timefreq_plot_chan = {'Fz','Cz'};
 CONFIG.report.timefreq_window_len = 5;     % sec
-
+% compute coherence
+CONFIG.report.coh_chann_pair = {{'F3','F4'}}; % use cell structure to define multiple channel pairs
 
 %% ------------------------------------------------------------------------
 %            Run automated analysis of resting-state eeg
@@ -155,6 +156,6 @@ if CONFIG.SAVE_EXCEL
     [feature_out, session_name, feature_name] = export_feature(datafolder_list);
     
     % write to Excel sheet
-    filename = 'Result_Baseline_Power.xlsx';
+    filename = 'Result_Baseline_Power_Coh.xlsx';
     export_excel(filename, feature_out, session_name, feature_name);
 end

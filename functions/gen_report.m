@@ -131,6 +131,21 @@ if isfield(CONFIG.report,'timefreq_plot_chan')
     end
 end
 
+% chapter 4: time frequency deomposition plots
+if isfield(CONFIG.report,'timefreq_plot_chan')
+    if ~isempty(CONFIG.report.timefreq_plot_chan)
+        % new chapter
+        chap4 = Chapter('Time frequency decomposition');
+        for chan_id = 1:length(CONFIG.report.timefreq_plot_chan)
+            filename = sprintf('tfplot_%s.png',CONFIG.report.timefreq_plot_chan{chan_id});
+            image_tfplot = Image([CONFIG.report.directory filesep filename]);
+            image_tfplot.Style = {ScaleToFit};
+            add(chap4, Section('Title', CONFIG.report.timefreq_plot_chan{chan_id} , 'Content', image_tfplot));
+        end
+        add(rpt,chap4);
+    end
+end
+
 % Close the report (required)
 close(rpt);
 % Display the report (optional)
