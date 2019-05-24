@@ -70,7 +70,7 @@ CONFIG.VIS_CLEAN = 0;
 % basic preprocessing setting
 CONFIG.resample_rate = [];             % resampling rate in Hz
 CONFIG.filter_hp_cutoff = 1.0;      % Hz
-CONFIG.filter_lp_cutoff = 55;       % Hz
+CONFIG.filter_lp_cutoff = 50;       % Hz
 CONFIG.DO_INTERP_BADCHAN = 1;
 CONFIG.DO_RMBADCHAN_REJCHAN = 1;        % remove bad channel using pop_rejchan
 CONFIG.DO_RMBADCHAN_CLEANRAW = 1;       % remove bad channel using clean_rawdata
@@ -79,7 +79,7 @@ CONFIG.reref_choice = 'average';
 % bad channel removal criteria (using clean_rawdata)
 CONFIG.rmchan_flatline = 5;     % Maximum tolerated flatline duration. In seconds. If a channel has a longer
                                 % flatline than this, it will be considered abnormal. Default: 5
-CONFIG.rmchan_mincorr = 0.6;    % Minimum channel correlation. If a channel is correlated at less than this
+CONFIG.rmchan_mincorr = 0.7;    % Minimum channel correlation. If a channel is correlated at less than this
                                 % value to a reconstruction of it based on other channels, it is considered
                                 % abnormal in the given time window. This method requires that channel
                                 % locations are available and roughly correct; otherwise a fallback criterion
