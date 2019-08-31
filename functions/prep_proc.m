@@ -34,7 +34,7 @@ function [EEG, CONFIG] = filter_data(EEG,CONFIG)
 % high pass filtering using FIR
 plotfreqz = 0;
 if ~isempty(CONFIG.filter_hp_cutoff)
-    EEG = pop_eegfiltnew(EEG,[],CONFIG.filter_hp_cutoff,[],1,0,plotfreqz); % why set revfilt = 1 (invert filter)?
+    EEG = pop_eegfiltnew(EEG,'locutoff',CONFIG.filter_hp_cutoff,'hicutoff',[],'plotfreqz',plotfreqz);
 end
 
 % previous command for high pass filtering
@@ -42,7 +42,7 @@ end
 
 % low pass filtering using FIR
 if ~isempty(CONFIG.filter_lp_cutoff)
-    EEG = pop_eegfiltnew(EEG,[],CONFIG.filter_lp_cutoff,[],0,0,plotfreqz);
+    EEG = pop_eegfiltnew(EEG,'locutoff',[],'hicutoff',CONFIG.filter_lp_cutoff,'plotfreqz',plotfreqz);
 end
 EEG = eeg_checkset( EEG );
 

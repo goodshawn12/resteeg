@@ -29,6 +29,9 @@ end
 if strcmp(CONFIG.fileformat,'bdf') || strcmp(CONFIG.fileformat,'edf')
     EEG = pop_biosig([CONFIG.filepath CONFIG.filename '.' CONFIG.fileformat]);
     EEG = eeg_checkset( EEG );
+elseif strcmp(CONFIG.fileformat,'eeg')
+    EEG = pop_fileio([CONFIG.filepath CONFIG.filename '.' CONFIG.fileformat]);
+    EEG = eeg_checkset( EEG );
 elseif strcmp(CONFIG.fileformat,'set')
     EEG = pop_loadset([CONFIG.filepath CONFIG.filename '.' CONFIG.fileformat]);
 else

@@ -13,7 +13,7 @@ if ~exist('path_resteeg'), path_resteeg = uigetdir(pwd, 'Please select the RESTE
 if path_eeglab == 0, disp('EEGLAB folder is not specified'); clear path_eeglab; return; end
 if path_resteeg == 0, disp('RESTEEG folder is not specified'); clear path_resteeg; return; end
 
-path_chanlocs = [path_resteeg filesep 'chanlocs' filesep 'chanlocs_quick30.mat'];
+path_chanlocs = [path_resteeg filesep 'chanlocs' filesep 'chanlocs_HD72_36ch.mat'];
 
 % set path for toolboxes
 if isempty(which('eeglab'))
@@ -29,7 +29,7 @@ addpath('chanlocs')
 %            Define data path and file name
 % -------------------------------------------------------------------------
 path_datafolder = [];
-file_format = 'eeg';
+file_format = 'bdf';
 file_list = {};
 
 % manually select datasets if not defined
@@ -43,7 +43,7 @@ end
 
 % manually define labels of (non-EEG) channels to be moved
 CONFIG.chan_to_rm = {'ExG 1','ExG 2','Packet Counter','ExG 1','ExG 2', ...
-    'ACC0','ACC1','ACC2','ACC30','ACC31','ACC32','ACC33','ACC34'};
+    'ACC0','ACC1','ACC2','ACC30','ACC31','ACC32','ACC33','ACC34','TRIGGER'};
 
 % manually define data segments to be processed
 CONFIG.time_window = [];  % in sec
@@ -99,10 +99,10 @@ CONFIG.ICrej_thres = 0.5;       % reject artifact components when ICLabel classi
 % -------------------------------------------------------------------------
 
 % compute and plot time frequency decomposition
-CONFIG.report.timefreq_plot_chan = {'Fz','Cz'};
+CONFIG.report.timefreq_plot_chan = {'FFC3','FFC4'};
 CONFIG.report.timefreq_window_len = 5;     % sec
 % compute coherence
-CONFIG.report.coh_chann_pair = {{'F3','F4'}}; % use cell structure to define multiple channel pairs
+CONFIG.report.coh_chann_pair = {{'FFC3','FFC4'}}; % use cell structure to define multiple channel pairs
 
 %% ------------------------------------------------------------------------
 %            Run automated analysis of resting-state eeg
@@ -140,6 +140,7 @@ for file_id = 1:length(CONFIG.filename_list)
             fail_id{end+1} = CONFIG.filename;
         end
     end
+    
 end
 
 disp('The following files were not processed successfully:')
