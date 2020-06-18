@@ -1,10 +1,11 @@
-
 % required EEGLAB and EEGLAB plugins:
-%   - Data Import --> Biosig (depends on data format)
+%   - Data Import     --> Fileio
 %   - Data Processing --> clean_rawdata
-%   - Data Processing --> clean_line
+%   - Data Processing --> Cleanline
 %   - Data Processing --> ICLabel
 %   - Data Processing --> view_props
+%   - Data Processing --> Fieldtrip-lite
+%   - Data Processing --> dipfit
 
 % define folder path
 if ~exist('path_eeglab'), path_eeglab = uigetdir(pwd, 'Please select your EEGLAB folder'); end
@@ -13,7 +14,7 @@ if ~exist('path_resteeg'), path_resteeg = uigetdir(pwd, 'Please select the RESTE
 if path_eeglab == 0, disp('EEGLAB folder is not specified'); clear path_eeglab; return; end
 if path_resteeg == 0, disp('RESTEEG folder is not specified'); clear path_resteeg; return; end
 
-path_chanlocs = [path_resteeg filesep 'chanlocs' filesep 'chanlocs_quick30.mat'];
+path_chanlocs = [path_resteeg filesep 'chanlocs' filesep 'chanlocs_nexus32_21ch.mat'];
 
 % set path for toolboxes
 if isempty(which('eeglab'))
@@ -29,7 +30,7 @@ addpath('chanlocs')
 %            Define data path and file name
 % -------------------------------------------------------------------------
 path_datafolder = [];
-file_format = 'eeg';
+file_format = 'edf';
 file_list = {};
 
 % manually select datasets if not defined
@@ -42,18 +43,18 @@ end
 % -------------------------------------------------------------------------
 
 % manually define labels of (non-EEG) channels to be moved
-CONFIG.chan_to_rm = {'ExG 1','ExG 2','Packet Counter','ExG 1','ExG 2', ...
-    'ACC0','ACC1','ACC2','ACC30','ACC31','ACC32','ACC33','ACC34'};
+CONFIG.chan_to_rm = {'ExG 1','ExG 2','Packet Counter','ExG 1','ExG 2'};
 
 % manually define data segments to be processed
 CONFIG.time_window = [];  % in sec
 
 % setting: data import 
-CONFIG.FORCE_RUN_IMPORT = 1;                  % run data import pipeline and overwrite previous imported data
-CONFIG.FORCE_RUN_PREPROC = 1;                 % run preprocessing pipeline and overwrite previous preprocessed data
+CONFIG.FORCE_RUN_IMPORT = 0;                  % run data import pipeline and overwrite previous imported data
+CONFIG.FORCE_RUN_PREPROC = 0;                 % run preprocessing pipeline and overwrite previous preprocessed data
 CONFIG.HANDLE_SPECIAL_CASE = 0;
 
-CONFIG.SAVESET = 1;
+CONFIG.SAVESET = 1;                 % save as .set (EEGLAB) file
+CONFIG.SAVE_EDF = 1;                % save as .edf file 
 CONFIG.double_precision = 0;            % use double precision (e.g. avoid round-off errors in runica)
 CONFIG.DEBUG = 1;                  % output feature in Excel sheet
 
@@ -62,6 +63,9 @@ CONFIG.EXPORT_REPORT = 1;
 CONFIG.GEN_FIGURES = 1;
 CONFIG.VIS_CLEAN = 0;
 
+% Enable Source Localization - Dipole Fitting
+CONFIG.ENABLE_DIPFIT = 1;
+CONFIG.COREGISTER = [0 -15 0 0 0 -1.5800 1050 900 1000]; % manual registration required
 
 %% ------------------------------------------------------------------------
 %            (optional) Define parameters for processing pipeline
@@ -113,7 +117,7 @@ if ~iscell(file_list), file_list = {file_list}; end
     
 % remove file extension in the file name
 CONFIG.filename_list = cell(1,length(file_list));
-for file_id = 1:length(file_list)
+for file_id = 1:length(file_list)  
     [~,CONFIG.filename_list{file_id},~] = fileparts(file_list{file_id});
 end
 

@@ -26,17 +26,19 @@ if isempty(CONFIG.filepath) || isempty(CONFIG.filename)
     EEG = pop_loadset();
 end
 
-if strcmp(CONFIG.fileformat,'bdf') || strcmp(CONFIG.fileformat,'edf')
-    EEG = pop_biosig([CONFIG.filepath CONFIG.filename '.' CONFIG.fileformat]);
-    EEG = eeg_checkset( EEG );
-elseif strcmp(CONFIG.fileformat,'eeg')
+if strcmp(CONFIG.fileformat,'bdf') || strcmp(CONFIG.fileformat,'edf') || strcmp(CONFIG.fileformat,'eeg')
     EEG = pop_fileio([CONFIG.filepath CONFIG.filename '.' CONFIG.fileformat]);
     EEG = eeg_checkset( EEG );
 elseif strcmp(CONFIG.fileformat,'set')
     EEG = pop_loadset([CONFIG.filepath CONFIG.filename '.' CONFIG.fileformat]);
 else
-    disp('The data format not supported. Please see EEGLAB data import for more info.')
-    return
+    try 
+        EEG = pop_fileio([CONFIG.filepath CONFIG.filename '.' CONFIG.fileformat]);
+        EEG = eeg_checkset( EEG );
+        return
+    catch
+        disp('The data format not supported. Please see EEGLAB data import for more info.')
+    end
 end
 
 % store basic information of raw data

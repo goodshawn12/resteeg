@@ -30,6 +30,13 @@ else
 end
 
 %% ------------------------------------------------------------------------
+%               Export to EDF file
+% -------------------------------------------------------------------------
+if CONFIG.SAVE_EDF
+    pop_writeeeg(EEG, [CONFIG.filepath filesep CONFIG.filename '_matlab.edf'], 'TYPE','EDF');
+end
+
+%% ------------------------------------------------------------------------
 %               Power-related Measures
 % -------------------------------------------------------------------------
 
@@ -38,6 +45,7 @@ end
 
 % Short-time Fourier Transform (STFT)
 [EEG, CONFIG] = time_freq_analysis(EEG,CONFIG);
+[EEG, CONFIG] = gen_report_materials(EEG,CONFIG);
 
 
 %% ------------------------------------------------------------------------
@@ -71,8 +79,24 @@ end
 %% ------------------------------------------------------------------------
 %               Source-level Analysis
 % -------------------------------------------------------------------------
-
-
+if CONFIG.ENABLE_DIPFIT
+    [filepath_dipfit, ~] = fileparts(which('pop_multifit'));
+    filepath_dipfit = [filepath_dipfit filesep 'standard_BEM' filesep];
+    EEG = pop_dipfit_settings( EEG, 'hdmfile',[filepath_dipfit 'standard_vol.mat'],...
+        'coordformat','MNI',...
+        'mrifile',[filepath_dipfit 'standard_mri.mat'],...
+        'chanfile',[filepath_dipfit 'elec' filesep 'standard_1005.elc'],...
+        'coord_transform',CONFIG.COREGISTER ,'chansel',[1:EEG.nbchan] );
+    EEG = pop_multifit(EEG, [1:size(EEG.icaweights,1)] ,'threshold',100,'dipplot','on','plotopt',{'normlen' 'on'});
+    savefig(gcf,[CONFIG.report.directory filesep 'dipfit_all.fig']); close
+    
+    for ic_id = 1:size(EEG.icaweights,1)
+        pop_dipplot( EEG, ic_id,'mri',[filepath_dipfit 'standard_mri.mat'],...
+            'summary','on','num','on','normlen','on');
+        saveas(gcf, [CONFIG.report.directory filesep sprintf('dipfit_IC%d.png',ic_id)]); close
+    end
+end
+    
 
 %% ------------------------------------------------------------------------
 %          Nonstationary Analysis of Brain Dynamics
@@ -89,7 +113,6 @@ end
 % -------------------------------------------------------------------------
 
 if CONFIG.EXPORT_REPORT
-    [EEG, CONFIG] = gen_report_materials(EEG,CONFIG);
     [EEG, CONFIG] = gen_report(EEG,CONFIG);
 end
 
@@ -127,8 +150,10 @@ function [EEG, CONFIG] = power_analysis(EEG,CONFIG)
 
 % compute power spectra density (PSD)
 [spectra,freqs] = spectopo(EEG.data, 0, EEG.srate); close
+CONFIG.report.spectra = spectra;
+CONFIG.report.freqs = freqs;
 
-% Set the following frequency bands: delta=1-4, theta=4-8, alpha=8-13, beta=13-30, gamma=30-80.
+% Set the following frequency bands: delta=1-4, theta=4-8, alpha=8-13, beta=13-30, gamma=30-50.
 CONFIG.report.power_delta = mean(10.^(spectra(:, freqs>=1 & freqs<4 )/10),2);
 CONFIG.report.power_theta = mean(10.^(spectra(:, freqs>=4 & freqs<8 )/10),2);
 CONFIG.report.power_alpha = mean(10.^(spectra(:, freqs>=8 & freqs<13 )/10),2);
@@ -180,7 +205,7 @@ if ~isempty(CONFIG.report.timefreq_plot_chan)
         freq_range = 1:(find(f>50,1)-1);
         log_power = log(abs(s(freq_range,:)).^2);
         figure, imagesc(t,f(freq_range),log_power); set(gca,'YDir','normal'); colorbar
-        caxis([prctile(log_power(:),0.25),max(log_power(:))]);
+        caxis([min(log_power(:)),max(log_power(:))]);
         xlabel('Time (sec)'); ylabel('Frequency (Hz)'); set(gca,'fontsize',12); colormap('jet');
         title(sprintf('Channel %s (log power)',EEG.chanlocs(channel).labels));
         set(gcf,'position',[50,50,850,350])

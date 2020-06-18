@@ -12,7 +12,7 @@ function [EEG, CONFIG] = prep_proc(EEG,CONFIG)
 [EEG, CONFIG] = reref_data(EEG,CONFIG);
 
 % advance cleaning pipeline
-[EEG, CONFIG] = remove_linenoise(EEG,CONFIG);
+% [EEG, CONFIG] = remove_linenoise(EEG,CONFIG);
 [EEG, CONFIG] = asr_autoclean(EEG,CONFIG);
 [EEG, CONFIG] = ica_autoclean(EEG,CONFIG);
 
@@ -170,6 +170,7 @@ EEG = eeg_checkset(EEG);
 
 % option 2: 60Hz, 120Hz notch filter
 
+% option 3: Zapline by Alain de Cheveigne
 
 end
 
